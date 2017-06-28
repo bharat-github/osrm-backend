@@ -445,7 +445,9 @@ void Storage::PopulateLayout(DataLayout &layout)
             io::FileReader reader(config.mld_storage_path, io::FileReader::VerifyFingerprint);
 
             const auto weights_count = reader.ReadVectorSize<EdgeWeight>();
-            layout.SetBlockSize<EdgeWeight>(DataLayout::MLD_CELL_WEIGHTS, weights_count);
+            layout.SetBlockSize<EdgeWeight>(DataLayout::MLD_CELL_WEIGHTS1, weights_count);
+            const auto durations_count = reader.ReadVectorSize<EdgeDuration>();
+            layout.SetBlockSize<EdgeDuration>(DataLayout::MLD_CELL_DURATIONS, durations_count);
             const auto source_node_count = reader.ReadVectorSize<NodeID>();
             layout.SetBlockSize<NodeID>(DataLayout::MLD_CELL_SOURCE_BOUNDARY, source_node_count);
             const auto destination_node_count = reader.ReadVectorSize<NodeID>();
@@ -460,7 +462,8 @@ void Storage::PopulateLayout(DataLayout &layout)
         }
         else
         {
-            layout.SetBlockSize<char>(DataLayout::MLD_CELL_WEIGHTS, 0);
+            layout.SetBlockSize<char>(DataLayout::MLD_CELL_WEIGHTS1, 0);
+            layout.SetBlockSize<char>(DataLayout::MLD_CELL_DURATIONS, 0);
             layout.SetBlockSize<char>(DataLayout::MLD_CELL_SOURCE_BOUNDARY, 0);
             layout.SetBlockSize<char>(DataLayout::MLD_CELL_DESTINATION_BOUNDARY, 0);
             layout.SetBlockSize<char>(DataLayout::MLD_CELLS, 0);
@@ -883,7 +886,9 @@ void Storage::PopulateData(const DataLayout &layout, char *memory_ptr)
             BOOST_ASSERT(layout.GetBlockSize(storage::DataLayout::MLD_CELL_LEVEL_OFFSETS) > 0);
 
             auto mld_cell_weights_ptr = layout.GetBlockPtr<EdgeWeight, true>(
-                memory_ptr, storage::DataLayout::MLD_CELL_WEIGHTS);
+                memory_ptr, storage::DataLayout::MLD_CELL_WEIGHTS1);
+            auto mld_cell_duration_ptr = layout.GetBlockPtr<EdgeDuration, true>(
+                memory_ptr, storage::DataLayout::MLD_CELL_DURATIONS);
             auto mld_source_boundary_ptr = layout.GetBlockPtr<NodeID, true>(
                 memory_ptr, storage::DataLayout::MLD_CELL_SOURCE_BOUNDARY);
             auto mld_destination_boundary_ptr = layout.GetBlockPtr<NodeID, true>(
@@ -894,7 +899,9 @@ void Storage::PopulateData(const DataLayout &layout, char *memory_ptr)
                 memory_ptr, storage::DataLayout::MLD_CELL_LEVEL_OFFSETS);
 
             auto weight_entries_count =
-                layout.GetBlockEntries(storage::DataLayout::MLD_CELL_WEIGHTS);
+                layout.GetBlockEntries(storage::DataLayout::MLD_CELL_WEIGHTS1);
+            auto duration_entries_count =
+                layout.GetBlockEntries(storage::DataLayout::MLD_CELL_DURATIONS);
             auto source_boundary_entries_count =
                 layout.GetBlockEntries(storage::DataLayout::MLD_CELL_SOURCE_BOUNDARY);
             auto destination_boundary_entries_count =
@@ -904,6 +911,8 @@ void Storage::PopulateData(const DataLayout &layout, char *memory_ptr)
                 layout.GetBlockEntries(storage::DataLayout::MLD_CELL_LEVEL_OFFSETS);
 
             util::vector_view<EdgeWeight> weights(mld_cell_weights_ptr, weight_entries_count);
+            util::vector_view<EdgeDuration> durations(mld_cell_duration_ptr,
+                                                      duration_entries_count);
             util::vector_view<NodeID> source_boundary(mld_source_boundary_ptr,
                                                       source_boundary_entries_count);
             util::vector_view<NodeID> destination_boundary(mld_destination_boundary_ptr,
@@ -914,6 +923,7 @@ void Storage::PopulateData(const DataLayout &layout, char *memory_ptr)
                                                            cell_level_offsets_entries_count);
 
             partition::CellStorageView storage{std::move(weights),
+                                               std::move(durations),
                                                std::move(source_boundary),
                                                std::move(destination_boundary),
                                                std::move(cells),

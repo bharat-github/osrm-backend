@@ -54,7 +54,8 @@ inline void write(storage::io::FileWriter &writer,
 template <storage::Ownership Ownership>
 inline void read(storage::io::FileReader &reader, detail::CellStorageImpl<Ownership> &storage)
 {
-    storage::serialization::read(reader, storage.weights);
+    storage::serialization::read(reader, storage.weights1);
+    storage::serialization::read(reader, storage.durations);
     storage::serialization::read(reader, storage.source_boundary);
     storage::serialization::read(reader, storage.destination_boundary);
     storage::serialization::read(reader, storage.cells);
@@ -65,7 +66,8 @@ template <storage::Ownership Ownership>
 inline void write(storage::io::FileWriter &writer,
                   const detail::CellStorageImpl<Ownership> &storage)
 {
-    storage::serialization::write(writer, storage.weights);
+    storage::serialization::write(writer, storage.weights1);
+    storage::serialization::write(writer, storage.durations);
     storage::serialization::write(writer, storage.source_boundary);
     storage::serialization::write(writer, storage.destination_boundary);
     storage::serialization::write(writer, storage.cells);
