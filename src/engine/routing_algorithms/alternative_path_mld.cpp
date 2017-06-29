@@ -64,6 +64,7 @@ struct WeightedViaNodePackedPath
 {
     WeightedViaNode via;
     PackedPath path;
+    std::vector<EdgeWeight> path_weights;
 };
 
 // Represents a high-detail unpacked path (s, .., via, .., t)
@@ -728,7 +729,48 @@ InternalManyRoutesResult alternativePathSearch(SearchEngineData<Algorithm> &sear
 
     const auto extract_packed_path_from_heaps = [&](WeightedViaNode via) {
         auto packed_path = retrievePackedPathFromHeap(forward_heap, reverse_heap, via.node);
-        return WeightedViaNodePackedPath{std::move(via), std::move(packed_path)};
+
+        std::vector<EdgeWeight> path_weights;
+        path_weights.reserve(packed_path.size());
+
+        // Todo: refactor into a function retrievePackedPathWeightsFromHeap
+        for (auto it = begin(packed_path), last = end(packed_path); it != last; ++it)
+        {
+            auto from = std::get<0>(*it);
+            auto to = std::get<1>(*it);
+
+            BOOST_ASSERT(forward_heap.WasInserted(from) || reverse_heap.WasInserted(from));
+            BOOST_ASSERT(forward_heap.WasInserted(to) || reverse_heap.WasInserted(to));
+
+            if (forward_heap.WasInserted(from) && forward_heap.WasInserted(to))
+            {
+                const auto weight_from = forward_heap.GetKey(from);
+                const auto weight_to = forward_heap.GetKey(to);
+                BOOST_ASSERT(weight_to >= weight_from);
+                path_weights.push_back(weight_to - weight_from);
+            }
+            else if (reverse_heap.WasInserted(from) && reverse_heap.WasInserted(to))
+            {
+                const auto weight_from = reverse_heap.GetKey(from);
+                const auto weight_to = reverse_heap.GetKey(to);
+                BOOST_ASSERT(weight_from >= weight_to);
+                path_weights.push_back(weight_from - weight_to);
+            }
+            else
+            {
+                BOOST_ASSERT(forward_heap.WasInserted(from));
+                BOOST_ASSERT(reverse_heap.WasInserted(to));
+                const auto weight_from = forward_heap.GetKey(from);
+                const auto weight_to = reverse_heap.GetKey(to);
+                BOOST_ASSERT(via.weight >= (weight_from + weight_to));
+                path_weights.push_back(via.weight - (weight_from + weight_to));
+            }
+        }
+
+        BOOST_ASSERT(path_weights.size() == packed_path.size());
+
+        return WeightedViaNodePackedPath{
+            std::move(via), std::move(packed_path), std::move(path_weights)};
     };
 
     std::vector<WeightedViaNodePackedPath> weighted_packed_paths;
